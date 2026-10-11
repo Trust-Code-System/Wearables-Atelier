@@ -39,8 +39,8 @@ export default tseslint.config(
     },
   },
 
-  // Ignore build output, node_modules, and leftover Next.js files
+  // Ignore build output and node_modules
   {
-    ignores: ["dist/**", "node_modules/**", "*.config.js", "*.config.ts", "src/app/shop/**"],
+    ignores: ["dist/**", "node_modules/**", "*.config.js", "*.config.ts"],
   }
 );

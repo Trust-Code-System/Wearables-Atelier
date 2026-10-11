@@ -15,24 +15,11 @@ import { getCollectionLabelMap } from "../lib/siteSettings";
 
 type ShopProduct = {
   id: string; slug: string; name: string; category: string;
-  price: number; salePrice?: number; badge?: string | null; badgeColor?: string; img: string;
+  price: number; salePrice?: number; badge?: string | null; badgeColor?: string; img: string; sizes?: string[];
 };
 
-const FALLBACK_PRODUCTS: ShopProduct[] = [
-  { id: "01", slug: "embellished-lace-boubou", name: "Embellished Lace Boubou", category: "ready-to-wear", price: 120000, badge: "New In", badgeColor: "#0D0D0D", img: "/images/collection/look-01.png" },
-  { id: "02", slug: "aso-oke-occasion-gown", name: "Aso Oke Occasion Gown", category: "ready-to-wear", price: 85000, badge: "Limited Edition", badgeColor: "#C9A84C", img: "/images/collection/look-02.png" },
-  { id: "03", slug: "luxury-kaftan-set", name: "Luxury Kaftan Set", category: "ashabi", price: 135000, salePrice: 81000, badge: "Sale", badgeColor: "#e53935", img: "/images/collection/look-03.png" },
-  { id: "04", slug: "woven-turban-set", name: "Woven Turban Set", category: "turbans", price: 25000, badge: "New In", badgeColor: "#0D0D0D", img: "/images/collection/look-04.png" },
-  { id: "05", slug: "gold-statement-necklace", name: "Gold Statement Necklace", category: "jewellery", price: 45000, badge: "Exclusive", badgeColor: "#C9A84C", img: "/images/collection/look-05.png" },
-  { id: "06", slug: "ashabi-signature-dress", name: "Ashabi Signature Dress", category: "ashabi", price: 110000, badge: "Exclusive", badgeColor: "#C9A84C", img: "/images/collection/look-06.png" },
-  { id: "07", slug: "damask-iro-buba-set", name: "Damask Iro & Buba Set", category: "ready-to-wear", price: 95000, badge: "New In", badgeColor: "#0D0D0D", img: "/images/collection/look-07.png" },
-  { id: "08", slug: "kente-fabric-yard", name: "Kente Fabric (per yard)", category: "fabrics", price: 18000, badge: null, badgeColor: "", img: "/images/collection/look-08.png" },
-  { id: "09", slug: "velvet-evening-kaftan", name: "Velvet Evening Kaftan", category: "ready-to-wear", price: 105000, salePrice: 63000, badge: "Sale", badgeColor: "#e53935", img: "/images/collection/look-09.png" },
-  { id: "10", slug: "bridal-aso-oke", name: "Bridal Aso Oke Collection", category: "new-in", price: 130000, badge: "New In", badgeColor: "#0D0D0D", img: "/images/collection/look-10.png" },
-];
-
 function toShopProduct(p: Product): ShopProduct {
-  return { id: p.id, slug: p.slug, name: p.name, category: p.category, price: p.price, salePrice: p.salePrice, badge: p.badge, badgeColor: p.badgeColor, img: p.images[0] ?? "" };
+  return { id: p.id, slug: p.slug, name: p.name, category: p.category, price: p.price, salePrice: p.salePrice, badge: p.badge, badgeColor: p.badgeColor, img: p.images[0] ?? "", sizes: p.sizes };
 }
 
 const DEFAULT_CATEGORY_LABELS: Record<string, string> = {
@@ -72,7 +59,7 @@ function QuickViewModal({ p, onClose, categoryLabels }: { p: QuickViewProduct; o
   const { addItem } = useCart();
   const { toggle, isWishlisted } = useWishlist();
   const wishlisted = isWishlisted(p.slug);
-  const sizes = productSizes[p.slug] ?? ["XS", "S", "M", "L", "XL", "Custom"];
+  const sizes = p.sizes ?? productSizes[p.slug] ?? ["XS", "S", "M", "L", "XL", "Custom"];
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -281,7 +268,7 @@ export default function Shop() {
   usePageTitle(category ? `${categoryLabels[category] ?? category} | Wearables Atelier` : "Shop | Wearables Atelier");
   const searchQuery = searchParams.get("q")?.trim().toLowerCase() ?? "";
 
-  const [allProducts, setAllProducts] = useState<ShopProduct[]>(FALLBACK_PRODUCTS);
+  const [allProducts, setAllProducts] = useState<ShopProduct[]>([]);
   const [sort, setSort] = useState("Newest");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
@@ -296,7 +283,7 @@ export default function Shop() {
     getProducts()
       .then((data) => {
         const inStock = data.filter((p) => p.inStock !== false).map(toShopProduct);
-        if (inStock.length > 0) setAllProducts(inStock);
+        setAllProducts(inStock);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -334,7 +321,7 @@ export default function Shop() {
     }
 
     return list;
-  }, [category, searchQuery, maxPrice, selectedBadge, sort]);
+  }, [allProducts, category, searchQuery, maxPrice, selectedBadge, sort]);
 
   useEffect(() => { setVisibleCount(8); }, [filtered]);
 

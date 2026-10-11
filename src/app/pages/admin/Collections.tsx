@@ -225,7 +225,7 @@ function CollectionPanel({
                     className="mt-3 text-xs"
                     style={{ color: "#6B6560", fontFamily: "'DM Sans', sans-serif" }}
                   >
-                    Select an image file and it will be uploaded to Supabase Storage automatically.
+                    Select an image file to save a demo preview in this browser.
                   </p>
 
                   {previewImage && (

@@ -12,17 +12,17 @@ const NEXT_STEPS = [
   {
     icon: MessageCircle,
     title: "Confirmation message",
-    body: "You'll receive a WhatsApp message from us confirming your order details within 1–2 hours.",
+    body: "Confirmation messages are simulated. No WhatsApp message or email is sent.",
   },
   {
     icon: Package,
     title: "Crafted & dispatched",
-    body: "Your pieces are prepared with care. Ready-to-wear ships in 3–5 days; custom orders in 2–4 weeks.",
+    body: "Sample production and dispatch stages can be updated in the demo admin. No pieces are prepared or shipped.",
   },
   {
     icon: Check,
     title: "Delivered to you",
-    body: "We ship worldwide via DHL Express. You'll receive a tracking number as soon as your order leaves our studio.",
+    body: "Delivery and tracking updates are simulated in this browser. No courier booking takes place.",
   },
 ];
 
@@ -77,7 +77,7 @@ export default function OrderConfirmed() {
               className="text-xs tracking-[0.3em] uppercase mb-3"
               style={{ fontFamily: "'DM Sans', sans-serif", color: "#C9A84C" }}
             >
-              Order Received
+              Demo Order Received
             </p>
             <h1
               className="mb-4"
@@ -96,7 +96,7 @@ export default function OrderConfirmed() {
               className="mb-6 text-sm max-w-md mx-auto"
               style={{ fontFamily: "'DM Sans', sans-serif", color: "#6B6560", lineHeight: 1.8 }}
             >
-              We've received your order and will be in touch shortly. A confirmation will be sent to you via WhatsApp.
+              Your demo order is saved in this browser. Payment and confirmation messages are simulated; no real order is placed.
             </p>
 
             <div

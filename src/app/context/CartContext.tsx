@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useReducer, useState } from "react";
-import { supabase } from "../lib/supabase";
+import { authService } from "../lib/auth";
 
 export interface CartItem {
   id: string;
@@ -67,6 +67,7 @@ interface CartContextType {
   removeItem: (id: string, size: string) => void;
   updateQty: (id: string, size: string, qty: number) => void;
   clearCart: () => void;
+  ready: boolean;
   cartCount: number;
   subtotal: number;
 }
@@ -74,16 +75,17 @@ interface CartContextType {
 const CartContext = createContext<CartContextType | null>(null);
 
 function storageKey(uid: string | null) {
-  return uid ? `wba_cart_${uid}` : "wba_cart_guest";
+  return uid ? `wba_demo_cart_${uid}` : "wba_demo_cart_guest";
 }
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(cartReducer, { items: [] });
+  const [hydrated, setHydrated] = useState(false);
   const [uid, setUid] = useState<string | null>(null);
 
   // Track auth state and reload cart when user changes
   useEffect(() => {
-    void supabase.auth.getSession().then(({ data: { session } }) => {
+    void authService.getSession().then(({ data: { session } }) => {
       const newUid = session?.user?.id ?? null;
       setUid(newUid);
       try {
@@ -92,11 +94,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       } catch {
         dispatch({ type: "LOAD", items: [] });
       }
+      setHydrated(true);
     });
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = authService.onAuthStateChange((event, session) => {
+      if (event === "USER_UPDATED") return;
       const newUid = session?.user?.id ?? null;
       setUid(newUid);
       try {
@@ -112,8 +116,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   // Persist to localStorage on every change (keyed by uid)
   useEffect(() => {
-    localStorage.setItem(storageKey(uid), JSON.stringify(state.items));
-  }, [state.items, uid]);
+    if (hydrated) localStorage.setItem(storageKey(uid), JSON.stringify(state.items));
+  }, [state.items, uid, hydrated]);
 
   const addItem = (item: Omit<CartItem, "qty">) => dispatch({ type: "ADD", item });
   const removeItem = (id: string, size: string) => dispatch({ type: "REMOVE", id, size });
@@ -130,7 +134,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <CartContext.Provider value={{ items: state.items, addItem, removeItem, updateQty, clearCart, cartCount, subtotal }}>
+    <CartContext.Provider value={{ items: state.items, ready: hydrated, addItem, removeItem, updateQty, clearCart, cartCount, subtotal }}>
       {children}
     </CartContext.Provider>
   );

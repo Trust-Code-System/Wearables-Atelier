@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import type { User } from "@supabase/supabase-js";
-import { checkIsAdmin } from "../lib/db";
-import { supabase } from "../lib/supabase";
+import type { User } from "../lib/auth";
+import { checkIsAdmin, getAdminUsers } from "../lib/db";
+import { authService } from "../lib/auth";
 
 export type AdminRole = "owner" | "manager" | "editor" | null;
 
@@ -36,12 +36,8 @@ export function AdminProvider({ children }: { children: ReactNode }) {
           if (!cancelled) {
             setIsAdmin(adminStatus);
             if (adminStatus && sessionUser.email) {
-              const { data } = await supabase
-                .from("admins")
-                .select("role")
-                .eq("email", sessionUser.email.toLowerCase())
-                .maybeSingle();
-              const r = (data as { role?: string } | null)?.role;
+              const admins = await getAdminUsers();
+              const r = admins.find((admin) => admin.email === sessionUser.email?.toLowerCase())?.role;
               if (!cancelled) {
                 setRole(r === "owner" || r === "manager" || r === "editor" ? r : "editor");
               }
@@ -59,11 +55,11 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       if (!cancelled) setLoading(false);
     }
 
-    void supabase.auth.getSession().then(({ data: { session } }) => {
+    void authService.getSession().then(({ data: { session } }) => {
       void applySession(session?.user ?? null);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = authService.onAuthStateChange((_event, session) => {
       void applySession(session?.user ?? null);
     });
 

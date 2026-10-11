@@ -405,7 +405,7 @@ export default function Coupons() {
       >
         <Tag size={13} className="mt-0.5 shrink-0" style={{ color: "#C9A84C" }} />
         <span>
-          Coupons are validated from Firestore. Add/activate{" "}
+          Coupons are validated against browser-only demo data. Add/activate{" "}
           <strong style={{ color: "#0D0D0D" }}>IDANGANGAN</strong> here to make it work in{" "}
           <code
             className="px-1 py-0.5 text-xs"

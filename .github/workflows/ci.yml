@@ -1,157 +1,32 @@
-# ═══════════════════════════════════════════════════════════════
-# CI/CD Pipeline — Wearables Atelier
-# ═══════════════════════════════════════════════════════════════
-#
-# Stages:
-#   1. test     — TypeCheck + Lint + Unit tests (on every push/PR)
-#   2. build    — Production Vite build (on main push)
-#   3. deploy   — Supabase Edge Functions deploy (on main, with env secrets)
-#
-# Required GitHub Secrets:
-#   VITE_SUPABASE_URL           — Supabase project URL
-#   VITE_SUPABASE_ANON_KEY      — Supabase anon key
-#   VITE_PAYSTACK_PUBLIC_KEY    — Paystack public key
-#   SUPABASE_ACCESS_TOKEN       — Supabase CLI personal access token
-#   SUPABASE_PROJECT_ID         — Supabase project reference ID
-#
-# ───────────────────────────────────────────────────────────────
-
-name: CI/CD Pipeline
-
+name: Frontend checks
 on:
   push:
     branches: [main, develop]
   pull_request:
     branches: [main]
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
-
 jobs:
-  # ─────────────────────────────────────────────────────────────
-  # JOB 1 — Quality checks (type-check, lint, tests)
-  # ─────────────────────────────────────────────────────────────
-  test:
-    name: Type Check + Lint + Tests
+  frontend:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: "20"
-          cache: "npm"
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Type check
-        run: npm run typecheck
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Run unit tests with coverage
-        run: npm run test:coverage
-        env:
-          # Tests need env vars for import.meta.env mocking
-          VITE_SUPABASE_URL: https://test.supabase.co
-          VITE_SUPABASE_ANON_KEY: test-anon-key
-          VITE_PAYSTACK_PUBLIC_KEY: pk_test_placeholder
-
-      - name: Upload coverage report
-        uses: actions/upload-artifact@v4
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run test:coverage
+      - run: npm run build
+      - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: coverage-report
-          path: coverage/
+          name: frontend-validation
+          path: |
+            dist/
+            coverage/
           retention-days: 7
-
-  # ─────────────────────────────────────────────────────────────
-  # JOB 2 — Production build (only on pushes to main)
-  # ─────────────────────────────────────────────────────────────
-  build:
-    name: Production Build
-    runs-on: ubuntu-latest
-    needs: test
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    timeout-minutes: 10
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: "npm"
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build production bundle
-        run: npm run build
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-          VITE_PAYSTACK_PUBLIC_KEY: ${{ secrets.VITE_PAYSTACK_PUBLIC_KEY }}
-          NODE_ENV: production
-
-      - name: Upload build artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: dist
-          path: dist/
-          retention-days: 1
-
-  # ─────────────────────────────────────────────────────────────
-  # JOB 3 — Deploy Supabase Edge Functions (only on main)
-  # ─────────────────────────────────────────────────────────────
-  deploy-functions:
-    name: Deploy Edge Functions
-    runs-on: ubuntu-latest
-    needs: build
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    timeout-minutes: 10
-    environment: production
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Supabase CLI
-        uses: supabase/setup-cli@v1
-        with:
-          version: latest
-
-      - name: Deploy send-email function
-        run: |
-          supabase functions deploy send-email \
-            --project-ref ${{ secrets.SUPABASE_PROJECT_ID }} \
-            --no-verify-jwt
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-
-      - name: Deploy health function
-        run: |
-          supabase functions deploy health \
-            --project-ref ${{ secrets.SUPABASE_PROJECT_ID }} \
-            --no-verify-jwt
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-
-      - name: Smoke test — liveness check
-        run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-            "${{ secrets.VITE_SUPABASE_URL }}/functions/v1/health")
-          echo "Health status: $STATUS"
-          if [ "$STATUS" != "200" ]; then
-            echo "Health check failed with status $STATUS"
-            exit 1
-          fi

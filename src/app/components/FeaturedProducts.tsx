@@ -1,72 +1,14 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { ChevronLeft, ChevronRight, ArrowRight } from "lucide-react";
 import { Link } from "react-router";
 
-const products = [
-  {
-    id: "01",
-    slug: "embellished-lace-boubou",
-    name: "Embellished Lace Boubou",
-    category: "Ready to Wear",
-    price: "₦120,000",
-    badge: "New In",
-    badgeColor: "#0D0D0D",
-    img: "/images/collection/look-01.png",
-  },
-  {
-    id: "02",
-    slug: "aso-oke-occasion-gown",
-    name: "Aso Oke Occasion Gown",
-    category: "Ready to Wear",
-    price: "₦85,000",
-    badge: "Limited Edition",
-    badgeColor: "#C9A84C",
-    img: "/images/collection/look-02.png",
-  },
-  {
-    id: "03",
-    slug: "luxury-kaftan-set",
-    name: "Luxury Kaftan Set",
-    category: "Ashabi",
-    price: "₦135,000",
-    salePrice: "₦81,000",
-    badge: "Sale",
-    badgeColor: "#e53935",
-    img: "/images/collection/look-03.png",
-  },
-  {
-    id: "04",
-    slug: "woven-turban-set",
-    name: "Woven Turban Set",
-    category: "Turbans",
-    price: "₦25,000",
-    badge: "New In",
-    badgeColor: "#0D0D0D",
-    img: "/images/collection/look-04.png",
-  },
-  {
-    id: "05",
-    slug: "gold-statement-necklace",
-    name: "Gold Statement Necklace",
-    category: "Jewellery",
-    price: "₦45,000",
-    badge: "Exclusive",
-    badgeColor: "#C9A84C",
-    img: "/images/collection/look-05.png",
-  },
-  {
-    id: "06",
-    slug: "ashabi-signature-dress",
-    name: "Ashabi Signature Dress",
-    category: "Ashabi",
-    price: "₦110,000",
-    badge: "Exclusive",
-    badgeColor: "#C9A84C",
-    img: "/images/collection/look-06.png",
-  },
-];
+import { getProducts } from "../lib/db";
+import { useSiteSettings } from "../context/SiteSettingsContext";
+import { getCollectionLabelMap } from "../lib/siteSettings";
 
-function ProductCard({ product }: { product: (typeof products)[number] }) {
+type FeaturedProduct = { id: string; slug: string; name: string; category: string; price: string; salePrice?: string; badge?: string; badgeColor?: string; img: string };
+
+function ProductCard({ product }: { product: FeaturedProduct }) {
   const [hovered, setHovered] = useState(false);
 
   return (
@@ -197,6 +139,18 @@ function ProductCard({ product }: { product: (typeof products)[number] }) {
 }
 
 export function FeaturedProducts() {
+  const [products, setProducts] = useState<FeaturedProduct[]>([]);
+  const { settings } = useSiteSettings();
+  useEffect(() => {
+    const labels = getCollectionLabelMap(settings.collections);
+    void getProducts().then((data) => setProducts(data.filter((p) => p.featured && p.inStock).map((p, index) => ({
+      id: String(index + 1).padStart(2, "0"), slug: p.slug, name: p.name,
+      category: labels[p.category] ?? p.category,
+      price: `₦${p.price.toLocaleString("en-NG")}`,
+      salePrice: p.salePrice === undefined ? undefined : `₦${p.salePrice.toLocaleString("en-NG")}`,
+      badge: p.badge, badgeColor: p.badgeColor, img: p.images[0] ?? "",
+    }))));
+  }, [settings.collections]);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const scroll = (dir: "left" | "right") => {

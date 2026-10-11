@@ -13,14 +13,14 @@ import {
   UserRound,
 } from "lucide-react";
 import { useNavigate } from "react-router";
-import type { User } from "@supabase/supabase-js";
+import type { User } from "../lib/auth";
 import { AnnouncementBar } from "../components/AnnouncementBar";
 import { Footer } from "../components/Footer";
 import { Navbar } from "../components/Navbar";
 import { useCart } from "../context/CartContext";
 import { useWishlist } from "../context/WishlistContext";
 import { usePageTitle } from "../hooks/usePageTitle";
-import { supabase } from "../lib/supabase";
+import { authService } from "../lib/auth";
 import { checkIsAdmin } from "../lib/db";
 
 type Tab = "signin" | "signup" | "forgot";
@@ -100,7 +100,7 @@ export default function Account() {
   }, [tab]);
 
   useEffect(() => {
-    void supabase.auth.getSession().then(({ data: { session } }) => {
+    void authService.getSession().then(({ data: { session } }) => {
       const user = session?.user ?? null;
       setCurrentUser(user);
       setAuthLoading(false);
@@ -110,7 +110,7 @@ export default function Account() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = authService.onAuthStateChange((_event, session) => {
       const user = session?.user ?? null;
       setCurrentUser(user);
       setAuthLoading(false);
@@ -132,7 +132,7 @@ export default function Account() {
       const trimmedName = profileName.trim();
       const existingName = (currentUser.user_metadata as { full_name?: string } | undefined)?.full_name ?? "";
       if (trimmedName !== existingName) {
-        const { error: metaErr } = await supabase.auth.updateUser({
+        const { error: metaErr } = await authService.updateUser({
           data: { full_name: trimmedName },
         });
         if (metaErr) throw metaErr;
@@ -151,12 +151,12 @@ export default function Account() {
           return;
         }
 
-        const { error: pwErr } = await supabase.auth.updateUser({ password: newPassword.trim() });
+        const { error: pwErr } = await authService.updateUser({ password: newPassword.trim() });
         if (pwErr) throw pwErr;
       }
 
       setSubmitted(true);
-      setMessage("Profile settings updated successfully.");
+      setMessage("Demo profile updated in this browser. Password changes are simulated and not stored.");
       setNewPassword("");
       setConfirmNewPassword("");
     } catch (err) {
@@ -179,7 +179,7 @@ export default function Account() {
     setMessage("");
     setLoading(true);
     try {
-      await supabase.auth.signOut();
+      await authService.signOut();
       clearCart();
       clearWishlist();
       void navigate("/account");
@@ -201,13 +201,13 @@ export default function Account() {
         setLoading(false);
         return;
       }
-      const { error: resendErr } = await supabase.auth.resend({
+      const { error: resendErr } = await authService.resend({
         type: "signup",
         email: currentUser.email,
       });
       if (resendErr) throw resendErr;
       setSubmitted(true);
-      setMessage("Verification email sent. Please check your inbox.");
+      setMessage("Email verification simulated. No email was sent.");
     } catch (err) {
       setError(getFriendlyAuthError(err));
     } finally {
@@ -241,14 +241,14 @@ export default function Account() {
 
     try {
       if (tab === "signin") {
-        const { data: signData, error: signErr } = await supabase.auth.signInWithPassword({ email, password });
+        const { data: signData, error: signErr } = await authService.signInWithPassword({ email, password });
         if (signErr) throw signErr;
         setSubmitted(true);
-        setMessage("Sign in successful!");
+        setMessage("Demo sign in successful!");
         const isAdmin = await checkIsAdmin(signData.user?.id ?? "", signData.user?.email);
         setTimeout(() => navigate(isAdmin ? "/admin" : "/"), 900);
       } else if (tab === "signup") {
-        const { data, error: signUpErr } = await supabase.auth.signUp({
+        const { data, error: signUpErr } = await authService.signUp({
           email,
           password,
           options: {
@@ -258,15 +258,15 @@ export default function Account() {
         if (signUpErr) throw signUpErr;
         setSubmitted(true);
         if (data.session) {
-          setMessage("Account created! You are signed in.");
+          setMessage("Demo account created in this browser. You are signed in.");
         } else {
-          setMessage("Account created! Check your email to confirm, then sign in.");
+          setMessage("Demo account created. No confirmation email is sent.");
         }
       } else {
-        const { error: resetErr } = await supabase.auth.resetPasswordForEmail(email);
+        const { error: resetErr } = await authService.resetPasswordForEmail(email);
         if (resetErr) throw resetErr;
         setSubmitted(true);
-        setMessage("Reset link sent to your email.");
+        setMessage("Password reset simulated. No email is sent and passwords are not stored.");
       }
     } catch (err) {
       setError(getFriendlyAuthError(err));
@@ -549,13 +549,13 @@ export default function Account() {
                   <div className="mt-5 flex items-start gap-3 rounded-[20px] bg-[rgba(13,13,13,0.04)] px-4 py-3">
                     <LockKeyhole size={16} className="mt-[2px] shrink-0 text-[#6B6560]" />
                     <p className="text-sm leading-6 text-[rgba(13,13,13,0.58)]">
-                      Use at least 6 characters. If you are asked to sign in again before changing your password, sign out and sign back in once, then try again.
+                      Use any sample password with at least 6 characters. This is a simulation; passwords are never stored or checked.
                     </p>
                   </div>
                 </section>
 
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="text-xs uppercase tracking-[0.2em] text-[#6B6560]">Changes save directly to your client profile</p>
+                  <p className="text-xs uppercase tracking-[0.2em] text-[#6B6560]">Changes save only to this browser’s demo profile</p>
                   <button
                     type="submit"
                     disabled={loading}
@@ -616,6 +616,10 @@ export default function Account() {
             ))}
           </div>
 
+          <p className="mb-4 text-xs leading-5 text-[#6B6560]">
+            Demo accounts: owner@demo.example for admin, customer@demo.example for the storefront.
+            Use any sample password with at least 6 characters. Do not enter real credentials.
+          </p>
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             {tab === "signup" && (
               <div>

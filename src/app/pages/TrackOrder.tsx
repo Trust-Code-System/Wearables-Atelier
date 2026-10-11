@@ -6,6 +6,7 @@ import { WhatsAppFAB } from "../components/WhatsAppFAB";
 import { Package, MessageCircle, Truck, CheckCircle2, Clock } from "lucide-react";
 import { usePageTitle } from "../hooks/usePageTitle";
 import { useSiteSettings } from "../context/SiteSettingsContext";
+import { getOrders, type Order } from "../lib/db";
 import { buildWhatsAppHref } from "../lib/siteSettings";
 
 const steps = [
@@ -22,10 +23,17 @@ export default function TrackOrder() {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [order, setOrder] = useState<Order | null>(null);
+  const [error, setError] = useState("");
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (orderNo.trim() && email.trim()) setSubmitted(true);
+    const found = (await getOrders()).find((item) => item.ref.toLowerCase() === orderNo.trim().toLowerCase() && item.customer.email.toLowerCase() === email.trim().toLowerCase());
+    setOrder(found ?? null);
+    setError(found ? "" : "No demo order matches this reference and email in this browser.");
+    setSubmitted(Boolean(found));
   };
+  const currentStep = order ? ({ received: 0, confirmed: 0, processing: 1, dispatched: 2, delivered: 3, cancelled: -1, refunded: -1 }[order.status]) : 0;
+  const statusLabel = order?.status === "processing" ? "In Production" : order?.status ?? "";
 
   const inputStyle = { fontFamily: "'DM Sans', sans-serif", borderColor: "rgba(13,13,13,0.2)", backgroundColor: "transparent", color: "#0D0D0D" };
   const labelStyle = { fontFamily: "'DM Sans', sans-serif", fontWeight: 600 as const, color: "#0D0D0D" };
@@ -45,6 +53,7 @@ export default function TrackOrder() {
 
           {!submitted ? (
             <>
+              {error && <p role="alert" className="mb-4 text-sm text-red-700">{error}</p>}
               <form onSubmit={handleSubmit} className="flex flex-col gap-5 mb-10">
                 <div>
                   <label className="text-xs tracking-[0.15em] uppercase block mb-2" style={labelStyle}>Order Number *</label>
@@ -53,7 +62,7 @@ export default function TrackOrder() {
                     required
                     value={orderNo}
                     onChange={(e) => setOrderNo(e.target.value)}
-                    placeholder="e.g. WBA-20240001"
+                    placeholder="e.g. WBA-DEMO-0001"
                     className="w-full px-4 py-3 text-sm outline-none border"
                     style={inputStyle}
                   />
@@ -79,8 +88,8 @@ export default function TrackOrder() {
               <div className="p-5" style={{ backgroundColor: "#EDE8DF" }}>
                 <p className="text-xs tracking-[0.15em] uppercase mb-3" style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 600, color: "#0D0D0D" }}>Where to find your order number</p>
                 <ul className="flex flex-col gap-2 text-sm" style={{ color: "#6B6560" }}>
-                  <li>• In your order confirmation email (subject: "Order Confirmed — Wearables Atelier")</li>
-                  <li>• Via WhatsApp if you ordered through our chat line</li>
+                  <li>• Demo example: WBA-DEMO-0001 with customer@demo.example</li>
+                  <li>• On the confirmation page after a simulated checkout</li>
                   <li>• In your account under My Orders</li>
                 </ul>
               </div>
@@ -96,7 +105,7 @@ export default function TrackOrder() {
                 <div className="flex items-center justify-between">
                   <p style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: "20px", color: "#0D0D0D" }}>{orderNo}</p>
                   <span className="px-3 py-1 text-[10px] tracking-widest uppercase" style={{ backgroundColor: "#C9A84C", color: "#0D0D0D", fontFamily: "'DM Sans', sans-serif", fontWeight: 600 }}>
-                    In Production
+                    {statusLabel}
                   </span>
                 </div>
               </div>
@@ -104,9 +113,9 @@ export default function TrackOrder() {
               {/* Progress steps */}
               <div className="relative flex justify-between mb-10">
                 <div className="absolute top-4 left-0 right-0 h-px" style={{ backgroundColor: "rgba(13,13,13,0.1)" }} />
-                <div className="absolute top-4 left-0 h-px" style={{ backgroundColor: "#C9A84C", width: "35%" }} />
+                <div className="absolute top-4 left-0 h-px" style={{ backgroundColor: "#C9A84C", width: `${Math.max(0, currentStep) * 100 / 3}%` }} />
                 {steps.map((s, i) => {
-                  const active = i <= 1;
+                  const active = i <= currentStep;
                   return (
                     <div key={s.label} className="relative flex flex-col items-center gap-2 z-10">
                       <div
@@ -125,7 +134,7 @@ export default function TrackOrder() {
 
               <div className="p-5 mb-8" style={{ backgroundColor: "rgba(201,168,76,0.08)", borderLeft: "2px solid #C9A84C" }}>
                 <p className="text-xs tracking-[0.15em] uppercase mb-1" style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 600, color: "#0D0D0D" }}>Latest Update</p>
-                <p className="text-sm" style={{ color: "#6B6560" }}>Your order is being handcrafted in our Lagos atelier. Estimated dispatch in 4–6 business days.</p>
+                <p className="text-sm" style={{ color: "#6B6560" }}>Demo order status: {statusLabel}. This reflects browser-only admin updates; no real production or delivery takes place.</p>
               </div>
 
               <div className="flex flex-col sm:flex-row gap-4">

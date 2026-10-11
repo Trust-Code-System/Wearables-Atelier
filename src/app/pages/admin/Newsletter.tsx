@@ -233,7 +233,7 @@ export default function Newsletter() {
                 }}
               >
                 {sendResult.failed === 0
-                  ? <><CheckCircle2 size={15} /> Sent to {sendResult.sent} subscriber{sendResult.sent !== 1 ? "s" : ""} successfully.</>
+                  ? <><CheckCircle2 size={15} /> Simulated delivery to {sendResult.sent} subscriber{sendResult.sent !== 1 ? "s" : ""} in this browser. No emails sent.</>
                   : <><AlertCircle size={15} /> {sendResult.sent} sent, {sendResult.failed} failed. Check console for details.</>
                 }
               </div>

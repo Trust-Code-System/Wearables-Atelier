@@ -51,7 +51,7 @@ describe("AppError.from", () => {
     expect(wrapped).toBe(original);
   });
 
-  it("maps Supabase unique constraint code to CONFLICT", () => {
+  it("maps structured unique constraint code to CONFLICT", () => {
     const supaErr = Object.assign(new Error("duplicate key"), { code: "23505" });
     const wrapped = AppError.from(supaErr);
     expect(wrapped.code).toBe("CONFLICT");

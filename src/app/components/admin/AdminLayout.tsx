@@ -1,6 +1,6 @@
 import { useState, Suspense } from "react";
 import { Outlet, useNavigate, useLocation, NavLink } from "react-router";
-import { supabase } from "../../lib/supabase";
+import { authService } from "../../lib/auth";
 import { useAdmin } from "../../context/AdminContext";
 import type { AdminRole } from "../../context/AdminContext";
 import {
@@ -122,7 +122,7 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
   const { user, role } = useAdmin();
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    await authService.signOut();
     void navigate("/account");
   };
 
@@ -309,7 +309,7 @@ export function AdminLayout() {
       </aside>
 
       {/* Main content */}
-      <div className="flex-1 flex flex-col lg:ml-64">
+      <div className="min-w-0 flex-1 flex flex-col lg:ml-64">
         {/* Top bar */}
         <header
           className="sticky top-0 z-30 flex items-center gap-4 px-6 py-4 border-b"

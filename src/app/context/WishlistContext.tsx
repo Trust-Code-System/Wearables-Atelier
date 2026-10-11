@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useReducer, useState } from "react";
-import { supabase } from "../lib/supabase";
+import { authService } from "../lib/auth";
 
 export interface WishlistItem {
   slug: string;
@@ -46,16 +46,17 @@ interface WishlistContextValue {
 const WishlistContext = createContext<WishlistContextValue | null>(null);
 
 function storageKey(uid: string | null) {
-  return uid ? `wba_wishlist_${uid}` : "wba_wishlist_guest";
+  return uid ? `wba_demo_wishlist_${uid}` : "wba_demo_wishlist_guest";
 }
 
 export function WishlistProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, { items: [] });
+  const [hydrated, setHydrated] = useState(false);
   const [uid, setUid] = useState<string | null>(null);
 
   // Track auth state and reload wishlist when user changes
   useEffect(() => {
-    void supabase.auth.getSession().then(({ data: { session } }) => {
+    void authService.getSession().then(({ data: { session } }) => {
       const newUid = session?.user?.id ?? null;
       setUid(newUid);
       try {
@@ -64,11 +65,13 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
       } catch {
         dispatch({ type: "LOAD", items: [] });
       }
+      setHydrated(true);
     });
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = authService.onAuthStateChange((event, session) => {
+      if (event === "USER_UPDATED") return;
       const newUid = session?.user?.id ?? null;
       setUid(newUid);
       try {
@@ -83,8 +86,8 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem(storageKey(uid), JSON.stringify(state.items));
-  }, [state.items, uid]);
+    if (hydrated) localStorage.setItem(storageKey(uid), JSON.stringify(state.items));
+  }, [state.items, uid, hydrated]);
 
   function toggle(item: WishlistItem) {
     dispatch({ type: "TOGGLE", item });

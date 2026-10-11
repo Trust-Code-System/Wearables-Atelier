@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import NotFound from "./NotFound";
 import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
 import { WhatsAppFAB } from "../components/WhatsAppFAB";
@@ -12,7 +13,7 @@ import { usePageTitle } from "../hooks/usePageTitle";
 import { getProduct, getProducts, type Product, getProductReviews, saveProductReview, type ProductReview } from "../lib/db";
 import { buildWhatsAppHref } from "../lib/siteSettings";
 
-const RECENTLY_VIEWED_KEY = "wba_recently_viewed";
+const RECENTLY_VIEWED_KEY = "wba_demo_recently_viewed";
 const MAX_RECENT = 6;
 
 function saveRecentlyViewed(item: { slug: string; name: string; category: string; price: number; salePrice?: number; img: string }) {
@@ -476,25 +477,31 @@ export default function ProductDetail() {
   const { slug } = useParams<{ slug: string }>();
   const { settings } = useSiteSettings();
   const hardcoded = (slug && productData[slug]) || null;
-  const [firestoreProduct, setFirestoreProduct] = useState<ReturnType<typeof toDetailProduct> | null>(null);
+  const [serviceProduct, setServiceProduct] = useState<ReturnType<typeof toDetailProduct> | null>(null);
   const [related, setRelated] = useState<Array<{ slug: string; name: string; category: string; price: number; salePrice?: number; badge?: string; badgeColor?: string; img: string }>>(relatedPool.filter((p) => p.slug !== slug).slice(0, 4));
   const [loadingProduct, setLoadingProduct] = useState(true);
 
   useEffect(() => {
+    setLoadingProduct(true);
+    setServiceProduct(null);
+    setActiveImg(0);
+    setSelectedSize("");
+    let cancelled = false;
     if (!slug) { setLoadingProduct(false); return; }
     void getProduct(slug).then((p) => {
-      if (p) setFirestoreProduct(toDetailProduct(p));
-    }).finally(() => setLoadingProduct(false));
-    // Load related from Firestore
+      if (!cancelled) setServiceProduct(p ? toDetailProduct(p) : null);
+    }).finally(() => { if (!cancelled) setLoadingProduct(false); });
+    // Load related products from the frontend service
     void getProducts().then((all) => {
       const others = all.filter((p) => p.slug !== slug && p.inStock !== false);
-      if (others.length > 0) {
+      if (!cancelled) {
         setRelated(others.slice(0, 4).map((p) => ({ slug: p.slug, name: p.name, category: p.category, price: p.price, salePrice: p.salePrice, badge: p.badge, badgeColor: p.badgeColor ?? "", img: p.images[0] ?? "" })));
       }
     }).catch(() => {});
+    return () => { cancelled = true; };
   }, [slug]);
 
-  const product = firestoreProduct ?? hardcoded ?? fallbackProduct;
+  const product = serviceProduct ?? hardcoded ?? fallbackProduct;
   usePageTitle(`${product.name} | Wearables Atelier`);
 
   const { addItem } = useCart();
@@ -512,7 +519,7 @@ export default function ProductDetail() {
 
   // Save to recently viewed & load list
   useEffect(() => {
-    if (slug && !loadingProduct) {
+    if (slug && !loadingProduct && serviceProduct) {
       saveRecentlyViewed({ slug, name: product.name, category: product.category, price: product.price, salePrice: product.salePrice, img: product.imgs[0] });
     }
     setRecentlyViewed(getRecentlyViewed().filter((i) => i.slug !== slug));
@@ -588,6 +595,8 @@ export default function ProductDetail() {
   const stockSeed = slug ? slug.split("").reduce((a, c) => a + c.charCodeAt(0), 0) : 50;
   const stockLeft = (stockSeed % 7) + 2; // 2–8 units
   const isLowStock = stockLeft <= 4;
+
+  if (!loadingProduct && !serviceProduct) return <NotFound />;
 
   return (
     <div style={{ fontFamily: "'DM Sans', sans-serif", backgroundColor: "#F8F5F0", minHeight: "100vh" }}>

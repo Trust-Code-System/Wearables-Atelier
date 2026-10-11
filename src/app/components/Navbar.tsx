@@ -4,8 +4,8 @@ import { Link, useLocation, useNavigate } from "react-router";
 import { useCart } from "../context/CartContext";
 import { useWishlist } from "../context/WishlistContext";
 import { useSiteSettings } from "../context/SiteSettingsContext";
-import type { User as SupabaseUser } from "@supabase/supabase-js";
-import { supabase } from "../lib/supabase";
+import type { User as AuthUser } from "../lib/auth";
+import { authService } from "../lib/auth";
 import { buildWhatsAppHref, getCollectionHref } from "../lib/siteSettings";
 
 export function Navbar() {
@@ -17,7 +17,7 @@ export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [currentUser, setCurrentUser] = useState<SupabaseUser | null>(null);
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const lastScrollY = useRef(0);
   const location = useLocation();
@@ -76,12 +76,12 @@ export function Navbar() {
   }, [location.pathname]);
 
   useEffect(() => {
-    void supabase.auth.getSession().then(({ data: { session } }) => {
+    void authService.getSession().then(({ data: { session } }) => {
       setCurrentUser(session?.user ?? null);
     });
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = authService.onAuthStateChange((_event, session) => {
       setCurrentUser(session?.user ?? null);
     });
     return () => subscription.unsubscribe();

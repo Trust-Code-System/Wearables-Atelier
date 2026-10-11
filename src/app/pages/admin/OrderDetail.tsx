@@ -255,8 +255,8 @@ export default function OrderDetail() {
             </div>
           </div>
           <div className="text-xs" style={{ color: "#6B6560" }}>
-            <span className="font-semibold" style={{ color: "#0D0D0D" }}>Paystack Ref: </span>
-            <span className="font-mono">{order.paystackRef}</span>
+            <span className="font-semibold" style={{ color: "#0D0D0D" }}>Demo Payment Ref: </span>
+            <span className="font-mono">{order.paymentRef}</span>
           </div>
         </div>
       </div>

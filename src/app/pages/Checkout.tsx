@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { useForm } from "react-hook-form";
 import { Navbar } from "../components/Navbar";
@@ -8,24 +8,7 @@ import { WhatsAppFAB } from "../components/WhatsAppFAB";
 import { useCart } from "../context/CartContext";
 import { usePageTitle } from "../hooks/usePageTitle";
 import { Lock, AlertCircle } from "lucide-react";
-import { saveOrder } from "../lib/db";
-
-declare global {
-  interface Window {
-    PaystackPop: {
-      setup: (config: {
-        key: string;
-        email: string;
-        amount: number;
-        currency: string;
-        ref: string;
-        metadata?: object;
-        callback: (response: { reference: string }) => void;
-        onClose: () => void;
-      }) => { openIframe: () => void };
-    };
-  }
-}
+import { simulateCheckout } from "../lib/payment";
 
 type CheckoutForm = {
   firstName: string;
@@ -73,14 +56,15 @@ const labelStyle = {
 
 export default function Checkout() {
   usePageTitle("Checkout | Wearables Atelier");
-  const { items, clearCart, subtotal } = useCart();
+  const { items, clearCart, subtotal, ready } = useCart();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [paystackReady, setPaystackReady] = useState(false);
   const [paymentError, setPaymentError] = useState("");
   const [paying, setPaying] = useState(false);
+  const checkoutComplete = useRef(false);
 
-  const discount = parseFloat(searchParams.get("discount") ?? "0");
+  const rawDiscount = Number(searchParams.get("discount") ?? 0);
+  const discount = Number.isFinite(rawDiscount) ? Math.min(1, Math.max(0, rawDiscount)) : 0;
   const couponCode = searchParams.get("coupon") ?? "";
   const discountAmount = Math.round(subtotal * discount);
   const total = subtotal - discountAmount;
@@ -94,121 +78,28 @@ export default function Checkout() {
 
   const watchedCountry = watch("country");
 
-  // Load Paystack inline script
-  useEffect(() => {
-    if (typeof window !== "undefined" && window.PaystackPop) {
-      setPaystackReady(true);
-      return;
-    }
-    const script = document.createElement("script");
-    script.src = "https://js.paystack.co/v1/inline.js";
-    script.async = true;
-    script.onload = () => setPaystackReady(true);
-    script.onerror = () =>
-      setPaymentError("Failed to load payment system. Please check your connection.");
-    document.body.appendChild(script);
-  }, []);
-
   // Redirect to cart if empty
   useEffect(() => {
-    if (items.length === 0) {
+    if (ready && items.length === 0 && !checkoutComplete.current) {
       void navigate("/cart");
     }
-  }, [items, navigate]);
+  }, [items, navigate, ready]);
 
-  const onSubmit = (data: CheckoutForm) => {
+  const onSubmit = async (data: CheckoutForm) => {
     setPaymentError("");
-    if (!paystackReady || !window.PaystackPop) {
-      setPaymentError("Payment system is still loading. Please wait a moment and try again.");
-      return;
-    }
-
-    const publicKey = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY as string;
-    if (!publicKey || publicKey === "pk_test_YOUR_KEY_HERE") {
-      setPaymentError("Payment is not configured yet. Please contact us via WhatsApp to complete your order.");
-      return;
-    }
-
-    const ref = `WBA-${Date.now().toString(36).toUpperCase()}`;
     setPaying(true);
-
-    const handler = window.PaystackPop.setup({
-      key: publicKey,
-      email: data.email,
-      amount: total * 100, // convert to kobo
-      currency: "NGN",
-      ref,
-      metadata: {
-        custom_fields: [
-          {
-            display_name: "Customer Name",
-            variable_name: "customer_name",
-            value: `${data.firstName} ${data.lastName}`,
-          },
-          {
-            display_name: "Phone",
-            variable_name: "phone",
-            value: data.phone,
-          },
-          {
-            display_name: "Delivery Address",
-            variable_name: "address",
-            value: `${data.address}, ${data.city}, ${data.state}, ${data.country}`,
-          },
-          ...(couponCode
-            ? [{ display_name: "Coupon", variable_name: "coupon", value: couponCode }]
-            : []),
-        ],
-      },
-      callback: (_response: { reference: string }) => {
-        // Save order to Firestore (silent — does not block navigation)
-        saveOrder({
-          ref,
-          customer: {
-            firstName: data.firstName,
-            lastName: data.lastName,
-            email: data.email,
-            phone: data.phone,
-            address: data.address,
-            city: data.city,
-            state: data.state,
-            country: data.country,
-          },
-          items: items.map((item) => ({
-            id: item.id,
-            name: item.name,
-            category: item.category,
-            size: item.size,
-            price: item.price,
-            salePrice: item.salePrice,
-            qty: item.qty,
-            img: item.img,
-          })),
-          subtotal,
-          discountAmount,
-          couponCode: couponCode || undefined,
-          total,
-          status: "received",
-          paymentStatus: "paid",
-          paystackRef: ref,
-        }).catch(() => { /* silent — order placed regardless */ });
-
-        clearCart();
-        const params = new URLSearchParams({
-          ref,
-          email: data.email,
-          name:  `${data.firstName} ${data.lastName}`,
-          total: String(total),
-        });
-        void navigate(`/order-confirmed?${params.toString()}`);
-      },
-      onClose: () => {
-        setPaying(false);
-        setPaymentError("Payment window was closed. You can try again when ready.");
-      },
-    });
-
-    handler.openIframe();
+    try {
+      const order = await simulateCheckout({ customer: data, items, couponCode });
+      const params = new URLSearchParams({ ref: order.ref, email: data.email, name: `${data.firstName} ${data.lastName}`, total: String(order.total) });
+      // Save the simulated order before clearing the cart or leaving checkout.
+      checkoutComplete.current = true;
+      clearCart();
+      void navigate(`/order-confirmed?${params.toString()}`);
+    } catch (err) {
+      setPaymentError(err instanceof Error ? err.message : "Could not save the demo order. Please try again.");
+    } finally {
+      setPaying(false);
+    }
   };
 
   if (items.length === 0) return null;
@@ -477,14 +368,14 @@ export default function Checkout() {
                   }}
                 >
                   <Lock size={14} />
-                  {paying ? "Processing…" : `Pay ₦${total.toLocaleString()}`}
+                  {paying ? "Processing…" : `Simulate Payment ₦${total.toLocaleString()}`}
                 </button>
 
                 <p
                   className="text-center text-xs"
                   style={{ fontFamily: "'DM Sans', sans-serif", color: "#6B6560" }}
                 >
-                  Secured by Paystack · Your payment info is never stored on our servers
+                  Demo checkout · No money is charged. Orders are saved only in this browser.
                 </p>
               </div>
 

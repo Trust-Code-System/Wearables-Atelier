@@ -11,11 +11,11 @@ import {
 } from "lucide-react";
 import { uploadImageFile } from "../../lib/uploads";
 
-const STORAGE_KEY = "wba_media_library";
+const STORAGE_KEY = "wba_demo_media_library";
 
 function loadUrls(): string[] {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]");
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? JSON.stringify(Array.from({ length: 6 }, (_, i) => `/images/collection/look-${String(i + 1).padStart(2, "0")}.png`)));
   } catch {
     return [];
   }
@@ -120,7 +120,7 @@ export default function Media() {
           Media Library
         </h1>
         <p className="mt-1 text-sm" style={{ color: "#6B6560", fontFamily: "'DM Sans', sans-serif" }}>
-          Upload images to Supabase Storage and copy the saved URL anywhere you need it in admin.
+          Save demo images in this browser and copy their local data URL anywhere you need it in admin.
         </p>
       </div>
 
@@ -152,7 +152,7 @@ export default function Media() {
             Upload Image
           </p>
           <p className="mt-2 text-sm" style={{ color: "#6B6560", fontFamily: "'DM Sans', sans-serif" }}>
-            Choose a file from your device. We upload it to Supabase Storage and add it here
+            Choose a file from your device. We save a browser-only demo image and add it here
             automatically.
           </p>
           <label

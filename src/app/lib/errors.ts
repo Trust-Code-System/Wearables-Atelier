@@ -2,7 +2,7 @@
  * Centralised error types for the Wearables Atelier frontend service layer.
  *
  * Mirrors the engineering standard's AppError pattern adapted for a
- * Supabase/React architecture (no Express, so no statusCode on the class —
+ * frontend architecture (no server statusCode on the class —
  * the UI layer decides how to display each error kind).
  */
 
@@ -48,9 +48,8 @@ export class AppError extends Error {
     this.code = code;
     this.details = details;
     // Maintains proper stack trace in V8
-    if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, AppError);
-    }
+    const errorConstructor = Error as ErrorConstructor & { captureStackTrace?: (error: Error, constructor: typeof AppError) => void };
+    errorConstructor.captureStackTrace?.(this, AppError);
   }
 
   // ─── Factory helpers ───────────────────────────────────────────────────────
@@ -99,7 +98,7 @@ export class AppError extends Error {
     if (err instanceof AppError) return err;
 
     if (err instanceof Error) {
-      // Supabase errors carry a `code` field
+      // Structured service errors can carry a `code` field
       const supaErr = err as Error & { code?: string; message: string };
 
       if (supaErr.code === "23505") {
